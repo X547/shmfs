@@ -34,8 +34,8 @@ status_t ShmfsVolume::RegisterVnode(ShmfsVnode *vnode)
 	vnode->fId = id;
 	fIds.Insert(vnode);
 
-	dprintf("+ShmfsVnode(%" B_PRId64 ", \"%s\"), adr: %p\n", vnode->fId, vnode->Name(), vnode);
-	dprintf("  &fIdNode: %p\n", &vnode->fIdNode);
+	TRACE("+ShmfsVnode(%" B_PRId64 ", \"%s\"), adr: %p\n", vnode->fId, vnode->Name(), vnode);
+	TRACE("  &fIdNode: %p\n", &vnode->fIdNode);
 
 	return B_OK;
 }
@@ -43,7 +43,7 @@ status_t ShmfsVolume::RegisterVnode(ShmfsVnode *vnode)
 ShmfsVnode *ShmfsVolume::LookupVnode(ino_t id)
 {
 	RecursiveLocker lock(Lock());
-	dprintf("ShmfsVolume::LookupVnode: %" B_PRId64 "\n", id);
+	TRACE("ShmfsVolume::LookupVnode: %" B_PRId64 "\n", id);
 	return fIds.Find(id);
 }
 
@@ -59,7 +59,6 @@ status_t ShmfsVolume::Mount(ShmfsVolume* &volume, fs_volume *base, const char* d
 
 	vol->fRootVnode.SetTo(new(std::nothrow) ShmfsDirectoryVnode(), true);
 	CHECK_RET(vol->RegisterVnode(vol->fRootVnode));
-	vol->ListVnodes();
 	rootVnodeID = vol->fRootVnode->Id();
 	CHECK_RET(get_vnode(vol->Base(), rootVnodeID, NULL));
 
@@ -95,10 +94,10 @@ status_t ShmfsVolume::ReadFsInfo(struct fs_info &info)
 
 status_t ShmfsVolume::GetVnode(ino_t id, ShmfsVnode* &vnode, int &type, uint32 &flags, bool reenter)
 {
-	dprintf("ShmfsVolume::GetVnode(%" B_PRId64 ")\n", id);
-	dprintf("  &vnode: %p\n", &vnode);
-	dprintf("  &type: %p\n", &type);
-	dprintf("  &flags: %p\n", &flags);
+	TRACE("ShmfsVolume::GetVnode(%" B_PRId64 ")\n", id);
+	TRACE("  &vnode: %p\n", &vnode);
+	TRACE("  &type: %p\n", &type);
+	TRACE("  &flags: %p\n", &flags);
 
 	RecursiveLocker lock(Lock());
 

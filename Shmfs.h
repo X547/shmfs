@@ -13,6 +13,12 @@
 
 #include "ExternalAllocator.h"
 
+#if 0
+#define TRACE(x...) dprintf(x)
+#else
+#define TRACE(x...) ;
+#endif
+
 #define CHECK_RET(err) {status_t _err = (err); if (_err < B_OK) return _err;}
 
 

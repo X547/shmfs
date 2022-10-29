@@ -12,7 +12,7 @@
 ShmfsVnode::~ShmfsVnode()
 {
 	RecursiveLocker lock(Volume()->Lock());
-	dprintf("-ShmfsVnode(%" B_PRId64 ", \"%s\")\n", fId, Name());
+	TRACE("-ShmfsVnode(%" B_PRId64 ", \"%s\")\n", fId, Name());
 	if (fId != 0) {
 		fVolume->fIds.Remove(this);
 		fVolume->fIdPool.Free(fId);
@@ -33,7 +33,7 @@ status_t ShmfsVnode::SetName(const char *name)
 status_t ShmfsVnode::Lookup(const char* name, ino_t &id)
 {
 	RecursiveLocker lock(Volume()->Lock());
-	dprintf("ShmfsVnode::Lookup()\n");
+	TRACE("ShmfsVnode::Lookup()\n");
 	ShmfsVnode *vnode = fNames.Find(name);
 	if (vnode != NULL) {
 		id = vnode->Id();
@@ -45,52 +45,52 @@ status_t ShmfsVnode::Lookup(const char* name, ino_t &id)
 status_t ShmfsVnode::GetVnodeName(char* buffer, size_t bufferSize)
 {
 	RecursiveLocker lock(Volume()->Lock());
-	dprintf("ShmfsVnode::GetVnodeName()\n");
+	TRACE("ShmfsVnode::GetVnodeName()\n");
 	strlcpy(buffer, &fName[0], bufferSize);
 	return B_OK;
 }
 
 status_t ShmfsVnode::PutVnode(bool reenter)
 {
-	dprintf("ShmfsVnode::PutVnode()\n");
+	TRACE("ShmfsVnode::PutVnode()\n");
 	ReleaseReference();
 	return B_OK;
 }
 
 status_t ShmfsVnode::ReadSymlink(char* buffer, size_t &bufferSize)
 {
-	dprintf("ShmfsVnode::ReadSymlink(%p, %p)\n", buffer, &bufferSize);
+	TRACE("ShmfsVnode::ReadSymlink(%p, %p)\n", buffer, &bufferSize);
 	return ENOSYS;
 }
 
 status_t ShmfsVnode::CreateSymlink(const char* name, const char* path, int mode)
 {
-	dprintf("ShmfsVnode::CreateSymlink(\"%s\", \"%s\")\n", name, path);
+	TRACE("ShmfsVnode::CreateSymlink(\"%s\", \"%s\")\n", name, path);
 	return B_NOT_A_DIRECTORY;
 }
 
 status_t ShmfsVnode::Unlink(const char* name)
 {
-	dprintf("ShmfsVnode::Unlink(\"%s\")\n", name);
+	TRACE("ShmfsVnode::Unlink(\"%s\")\n", name);
 	return B_NOT_A_DIRECTORY;
 }
 
 status_t ShmfsVnode::Rename(const char* fromName, ShmfsVnode* toDir, const char* toName)
 {
-	dprintf("ShmfsVnode::Rename()\n");
+	TRACE("ShmfsVnode::Rename()\n");
 	return B_NOT_A_DIRECTORY;
 }
 
 status_t ShmfsVnode::Access(int mode)
 {
-	dprintf("ShmfsVnode::Access()\n");
+	TRACE("ShmfsVnode::Access()\n");
 	return B_OK;
 }
 
 status_t ShmfsVnode::ReadStat(struct stat &stat)
 {
 	RecursiveLocker lock(Volume()->Lock());
-	dprintf("ShmfsVnode::ReadStat()\n");
+	TRACE("ShmfsVnode::ReadStat()\n");
 
 	stat = {
 		.st_ino = fId,
@@ -111,7 +111,7 @@ status_t ShmfsVnode::WriteStat(const struct stat &stat, uint32 statMask)
 	ino_t dirId;
 	{
 	RecursiveLocker lock(Volume()->Lock());
-	dprintf("ShmfsVnode::WriteStat()\n");
+	TRACE("ShmfsVnode::WriteStat()\n");
 
 	if ((statMask & B_STAT_MODE) != 0)
 		fMode = stat.st_mode & S_IUMSK;
@@ -137,79 +137,79 @@ status_t ShmfsVnode::WriteStat(const struct stat &stat, uint32 statMask)
 
 status_t ShmfsVnode::Create(const char* name, int openMode, int perms, ino_t &newVnodeID)
 {
-	dprintf("ShmfsVnode::Create()\n");
+	TRACE("ShmfsVnode::Create()\n");
 	return B_NOT_A_DIRECTORY;
 }
 
 status_t ShmfsVnode::Open(int openMode, ShmfsFileCookie* &cookie)
 {
-	dprintf("ShmfsVnode::Open()\n");
+	TRACE("ShmfsVnode::Open()\n");
 	cookie = NULL;
 	return B_OK;
 }
 
 status_t ShmfsVnode::Close(ShmfsFileCookie* cookie)
 {
-	dprintf("ShmfsVnode::Close()\n");
+	TRACE("ShmfsVnode::Close()\n");
 	return B_OK;
 }
 
 status_t ShmfsVnode::FreeCookie(ShmfsFileCookie* cookie)
 {
-	dprintf("ShmfsVnode::FreeCookie()\n");
+	TRACE("ShmfsVnode::FreeCookie()\n");
 	return B_OK;
 }
 
 status_t ShmfsVnode::Read(ShmfsFileCookie* cookie, off_t pos, void* buffer, size_t &length)
 {
-	dprintf("ShmfsVnode::Read()\n");
+	TRACE("ShmfsVnode::Read()\n");
 	return B_IS_A_DIRECTORY;
 }
 
 status_t ShmfsVnode::Write(ShmfsFileCookie* cookie, off_t pos, const void* buffer, size_t &length)
 {
-	dprintf("ShmfsVnode::Write()\n");
+	TRACE("ShmfsVnode::Write()\n");
 	return B_IS_A_DIRECTORY;
 }
 
 status_t ShmfsVnode::CreateDir(const char* name, int perms)
 {
-	dprintf("ShmfsVnode::CreateDir()\n");
+	TRACE("ShmfsVnode::CreateDir()\n");
 	return B_NOT_A_DIRECTORY;
 }
 
 status_t ShmfsVnode::RemoveDir(const char* name)
 {
-	dprintf("ShmfsVnode::RemoveDir()\n");
+	TRACE("ShmfsVnode::RemoveDir()\n");
 	return B_NOT_A_DIRECTORY;
 }
 
 status_t ShmfsVnode::OpenDir(ShmfsDirIterator* &cookie)
 {
-	dprintf("ShmfsVnode::OpenDir()\n");
+	TRACE("ShmfsVnode::OpenDir()\n");
 	return B_NOT_A_DIRECTORY;
 }
 
 status_t ShmfsVnode::CloseDir(ShmfsDirIterator* cookie)
 {
-	dprintf("ShmfsVnode::CloseDir()\n");
+	TRACE("ShmfsVnode::CloseDir()\n");
 	return B_NOT_A_DIRECTORY;
 }
 
 status_t ShmfsVnode::FreeDirCookie(ShmfsDirIterator* cookie)
 {
-	dprintf("ShmfsVnode::FreeDirCookie()\n");
+	TRACE("ShmfsVnode::FreeDirCookie()\n");
 	return B_NOT_A_DIRECTORY;
 }
 
 status_t ShmfsVnode::ReadDir(ShmfsDirIterator* cookie, struct dirent* buffer, size_t bufferSize, uint32 &num)
 {
-	dprintf("ShmfsVnode::ReadDir()\n");
+	TRACE("ShmfsVnode::ReadDir()\n");
 	return B_NOT_A_DIRECTORY;
 }
 
 status_t ShmfsVnode::RewindDir(ShmfsDirIterator* cookie)
 {
-	dprintf("ShmfsVnode::RewindDir()\n");
+	TRACE("ShmfsVnode::RewindDir()\n");
 	return B_NOT_A_DIRECTORY;
 }

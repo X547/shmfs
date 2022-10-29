@@ -88,7 +88,7 @@ status_t ShmfsDirectoryVnode::CreateSymlink(const char* name, const char* path, 
 	ino_t id;
 	{
 	RecursiveLocker lock(Volume()->Lock());
-	dprintf("#%" B_PRId64 ".DirectoryVnode::CreateSymlink(\"%s\", \"%s\")\n", Id(), name, path);
+	TRACE("#%" B_PRId64 ".DirectoryVnode::CreateSymlink(\"%s\", \"%s\")\n", Id(), name, path);
 
 	if (fNodes.Find(name))
 		return B_FILE_EXISTS;
@@ -118,7 +118,7 @@ status_t ShmfsDirectoryVnode::Unlink(const char* name)
 	ino_t id;
 	{
 	RecursiveLocker lock(Volume()->Lock());
-	dprintf("#%" B_PRId64 ".DirectoryVnode::Unlink(\"%s\")\n", Id(), name);
+	TRACE("#%" B_PRId64 ".DirectoryVnode::Unlink(\"%s\")\n", Id(), name);
 
 	ShmfsVnode *vnode = fNodes.Find(name);
 	if (vnode == NULL)
@@ -142,7 +142,7 @@ status_t ShmfsDirectoryVnode::Rename(const char* fromName, ShmfsVnode* toDir, co
 	ino_t id, srcDirId, dstDirId;
 	{
 	RecursiveLocker lock(Volume()->Lock());
-	dprintf("#%" B_PRId64 ".DirectoryVnode::Rename()\n", Id());
+	TRACE("#%" B_PRId64 ".DirectoryVnode::Rename()\n", Id());
 
 	ShmfsDirectoryVnode *dstDirVnode = dynamic_cast<ShmfsDirectoryVnode*>(toDir);
 	if (dstDirVnode == NULL)
@@ -170,7 +170,7 @@ status_t ShmfsDirectoryVnode::Rename(const char* fromName, ShmfsVnode* toDir, co
 status_t ShmfsDirectoryVnode::ReadStat(struct stat &stat)
 {
 	RecursiveLocker lock(Volume()->Lock());
-	dprintf("#%" B_PRId64 ".DirectoryVnode::ReadStat()\n", Id());
+	TRACE("#%" B_PRId64 ".DirectoryVnode::ReadStat()\n", Id());
 	CHECK_RET(ShmfsVnode::ReadStat(stat));
 	stat.st_mode |= S_IFDIR;
 	return B_OK;
@@ -180,7 +180,7 @@ status_t ShmfsDirectoryVnode::Create(const char* name, int openMode, int perms, 
 {
 	{
 	RecursiveLocker lock(Volume()->Lock());
-	dprintf("#%" B_PRId64 ".DirectoryVnode::Create()\n", Id());
+	TRACE("#%" B_PRId64 ".DirectoryVnode::Create()\n", Id());
 
 	ShmfsVnode *oldVnode = fNodes.Find(name);
 	if (oldVnode != NULL) {
@@ -215,7 +215,7 @@ status_t ShmfsDirectoryVnode::CreateDir(const char* name, int perms)
 	ino_t id;
 	{
 	RecursiveLocker lock(Volume()->Lock());
-	dprintf("#%" B_PRId64 ".DirectoryVnode::CreateDir()\n", Id());
+	TRACE("#%" B_PRId64 ".DirectoryVnode::CreateDir()\n", Id());
 
 	if (fNodes.Find(name))
 		return B_FILE_EXISTS;
@@ -243,7 +243,7 @@ status_t ShmfsDirectoryVnode::RemoveDir(const char* name)
 	ino_t id;
 	{
 	RecursiveLocker lock(Volume()->Lock());
-	dprintf("#%" B_PRId64 ".DirectoryVnode::RemoveDir(\"%s\")\n", Id(), name);
+	TRACE("#%" B_PRId64 ".DirectoryVnode::RemoveDir(\"%s\")\n", Id(), name);
 
 	ShmfsVnode *vnode = fNodes.Find(name);
 	if (vnode == NULL)
@@ -268,7 +268,7 @@ status_t ShmfsDirectoryVnode::RemoveDir(const char* name)
 status_t ShmfsDirectoryVnode::Lookup(const char* name, ino_t &id)
 {
 	RecursiveLocker lock(Volume()->Lock());
-	dprintf("#%" B_PRId64 ".ShmfsDirectoryVnode::Lookup(\"%s\")\n", Id(), name);
+	TRACE("#%" B_PRId64 ".ShmfsDirectoryVnode::Lookup(\"%s\")\n", Id(), name);
 	if (strcmp(name, ".") == 0) {
 		id = Id();
 	} else if (strcmp(name, "..") == 0) {
@@ -281,7 +281,7 @@ status_t ShmfsDirectoryVnode::Lookup(const char* name, ino_t &id)
 			return B_ENTRY_NOT_FOUND;
 		id = vnode->Id();
 	}
-	dprintf("  id: %" B_PRId64 "\n", id);
+	TRACE("  id: %" B_PRId64 "\n", id);
 	CHECK_RET(get_vnode(Volume()->Base(), id, NULL));
 	return B_OK;
 }
@@ -289,7 +289,7 @@ status_t ShmfsDirectoryVnode::Lookup(const char* name, ino_t &id)
 status_t ShmfsDirectoryVnode::OpenDir(ShmfsDirIterator* &cookie)
 {
 	RecursiveLocker lock(Volume()->Lock());
-	dprintf("#%" B_PRId64 ".DirectoryVnode::OpenDir()\n", Id());
+	TRACE("#%" B_PRId64 ".DirectoryVnode::OpenDir()\n", Id());
 	cookie = new (std::nothrow) ShmfsDirIterator();
 	if (cookie == NULL)
 		return B_NO_MEMORY;
@@ -300,14 +300,14 @@ status_t ShmfsDirectoryVnode::OpenDir(ShmfsDirIterator* &cookie)
 
 status_t ShmfsDirectoryVnode::CloseDir(ShmfsDirIterator* cookie)
 {
-	dprintf("#%" B_PRId64 ".DirectoryVnode::CloseDir()\n", Id());
+	TRACE("#%" B_PRId64 ".DirectoryVnode::CloseDir()\n", Id());
 	fIterators.Remove(cookie);
 	return B_OK;
 }
 
 status_t ShmfsDirectoryVnode::FreeDirCookie(ShmfsDirIterator* cookie)
 {
-	dprintf("#%" B_PRId64 ".DirectoryVnode::FreeDirCookie()\n", Id());
+	TRACE("#%" B_PRId64 ".DirectoryVnode::FreeDirCookie()\n", Id());
 	delete cookie;
 	return B_OK;
 }
@@ -315,7 +315,7 @@ status_t ShmfsDirectoryVnode::FreeDirCookie(ShmfsDirIterator* cookie)
 status_t ShmfsDirectoryVnode::ReadDir(ShmfsDirIterator* cookie, struct dirent* buffer, size_t bufferSize, uint32 &num)
 {
 	RecursiveLocker lock(Volume()->Lock());
-	dprintf("#%" B_PRId64 ".DirectoryVnode::ReadDir()\n", Id());
+	TRACE("#%" B_PRId64 ".DirectoryVnode::ReadDir()\n", Id());
 
 	const char *name;
 	ShmfsVnode *vnode;
@@ -353,7 +353,7 @@ status_t ShmfsDirectoryVnode::ReadDir(ShmfsDirIterator* cookie, struct dirent* b
 status_t ShmfsDirectoryVnode::RewindDir(ShmfsDirIterator* cookie)
 {
 	RecursiveLocker lock(Volume()->Lock());
-	dprintf("#%" B_PRId64 ".DirectoryVnode::RewindDir()\n", Id());
+	TRACE("#%" B_PRId64 ".DirectoryVnode::RewindDir()\n", Id());
 	IteratorRewind(cookie);
 	return B_OK;
 }
