@@ -22,9 +22,16 @@
 #define CHECK_RET(err) {status_t _err = (err); if (_err < B_OK) return _err;}
 
 
+class VMCache;
+class vm_page;
+
 class ShmfsVolume;
 class ShmfsFileCookie;
 class ShmfsDirIterator;
+
+
+void GetCurrentTime(struct timespec &outTime);
+
 
 class ShmfsVnode: public BReferenceable {
 private:
@@ -117,6 +124,7 @@ public:
 	virtual status_t Lookup(const char* name, ino_t &id);
 	status_t GetVnodeName(char* buffer, size_t bufferSize);
 	status_t PutVnode(bool reenter);
+	status_t Fsync();
 	virtual status_t ReadSymlink(char* buffer, size_t &bufferSize);
 	virtual status_t CreateSymlink(const char* name, const char* path, int mode);
 	virtual status_t Unlink(const char* name);
@@ -141,13 +149,17 @@ public:
 
 class ShmfsFileVnode: public ShmfsVnode {
 private:
-	ArrayDeleter<uint8> fData;
-	uint64 fDataAllocSize, fDataSize;
+	VMCache* fCache{};
+	uint64 fDataSize = 0;
 
-	status_t EnsureSize(uint64 size);
+	void _GetPages(off_t offset, off_t length, bool isWrite, vm_page** pages);
+	void _PutPages(off_t offset, off_t length, vm_page** pages, bool success);
+	status_t _DoCacheIO(const off_t offset, uint8* buffer, ssize_t length, size_t &bytesProcessed, bool isWrite);
 
 public:
-	~ShmfsFileVnode() = default;
+	~ShmfsFileVnode();
+
+	status_t Init();
 
 	status_t ReadStat(struct stat &stat) final;
 	status_t WriteStat(const struct stat &stat, uint32 statMask) final;
@@ -177,6 +189,7 @@ private:
 	bool IteratorGet(ShmfsDirIterator* cookie, const char *&name, ShmfsVnode *&vnode);
 	void IteratorNext(ShmfsDirIterator* cookie);
 
+	void InitTimestamps(ShmfsVnode* vnode);
 	void RemoveNode(ShmfsVnode *vnode);
 
 public:

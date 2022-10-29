@@ -25,6 +25,9 @@ static fs_vnode_ops sVnodeOps = {
 	.put_vnode = [](fs_volume* volume, fs_vnode* vnode, bool reenter) {
 		return static_cast<ShmfsVnode*>(vnode->private_node)->PutVnode(reenter);
 	},
+	.fsync = [](fs_volume* volume, fs_vnode* vnode) {
+		return static_cast<ShmfsVnode*>(vnode->private_node)->Fsync();
+	},
 	.read_symlink = [](fs_volume* volume, fs_vnode* link, char* buffer, size_t* bufferSize) {
 		return static_cast<ShmfsVnode*>(link->private_node)->ReadSymlink(buffer, *bufferSize);
 	},

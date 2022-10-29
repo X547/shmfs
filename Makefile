@@ -81,6 +81,9 @@ SYSTEM_INCLUDE_PATHS = \
 	/boot/system/develop/headers/private/shared \
 	/boot/system/develop/headers/private/kernel \
 	/boot/system/develop/headers/private/kernel/arch/x86 \
+	/boot/system/develop/headers/private/system \
+	/boot/system/develop/headers/private/system/arch/x86_64 \
+	/boot/system/develop/headers/private/kernel/boot/platform/efi \
 
 #	Additional paths paths to look for local headers. These use the form
 #	#include "header". Directories that contain the files in SRCS are

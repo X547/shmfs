@@ -71,6 +71,19 @@ void ShmfsDirectoryVnode::IteratorNext(ShmfsDirIterator* cookie)
 	}
 }
 
+void ShmfsDirectoryVnode::InitTimestamps(ShmfsVnode *vnode)
+{
+	struct timespec time;
+	GetCurrentTime(time);
+	vnode->fAccessTime = time;
+	vnode->fModifyTime = time;
+	vnode->fChangeTime = time;
+	vnode->fCreateTime = time;
+
+	fModifyTime = time;
+	fChangeTime = time;
+}
+
 void ShmfsDirectoryVnode::RemoveNode(ShmfsVnode *vnode)
 {
 	for (ShmfsDirIterator *it = fIterators.First(); it != NULL; it = fIterators.GetNext(it)) {
@@ -104,6 +117,7 @@ status_t ShmfsDirectoryVnode::CreateSymlink(const char* name, const char* path, 
 	CHECK_RET(Volume()->RegisterVnode(vnode));
 	id = vnode->Id();
 
+	InitTimestamps(vnode.Get());
 	fNodes.Insert(vnode);
 	vnode.Detach();
 	}
@@ -201,7 +215,13 @@ status_t ShmfsDirectoryVnode::Create(const char* name, int openMode, int perms, 
 	CHECK_RET(Volume()->RegisterVnode(vnode));
 	newVnodeID = vnode->Id();
 	CHECK_RET(get_vnode(Volume()->Base(), vnode->Id(), NULL));
-
+	status_t res = vnode->Init();
+	if (res < B_OK) {
+		put_vnode(Volume()->Base(), vnode->Id());
+		vnode.Detach();
+		return res;
+	}
+	InitTimestamps(vnode.Get());
 	fNodes.Insert(vnode);
 	vnode.Detach();
 	}
@@ -230,6 +250,7 @@ status_t ShmfsDirectoryVnode::CreateDir(const char* name, int perms)
 	CHECK_RET(Volume()->RegisterVnode(vnode));
 	id = vnode->Id();
 
+	InitTimestamps(vnode.Get());
 	fNodes.Insert(vnode);
 	vnode.Detach();
 	}

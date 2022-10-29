@@ -7,6 +7,14 @@
 #include <new>
 
 
+void GetCurrentTime(struct timespec &outTime)
+{
+	bigtime_t now = real_time_clock_usecs();
+	outTime.tv_sec = now / 1000000LL;
+	outTime.tv_nsec = (now % 1000000LL) * 1000;
+}
+
+
 //#pragma mark - ShmfsVnode
 
 ShmfsVnode::~ShmfsVnode()
@@ -54,6 +62,11 @@ status_t ShmfsVnode::PutVnode(bool reenter)
 {
 	TRACE("ShmfsVnode::PutVnode()\n");
 	ReleaseReference();
+	return B_OK;
+}
+
+status_t ShmfsVnode::Fsync()
+{
 	return B_OK;
 }
 
@@ -125,6 +138,8 @@ status_t ShmfsVnode::WriteStat(const struct stat &stat, uint32 statMask)
 		fModifyTime = stat.st_mtim;
 	if ((statMask & B_STAT_CHANGE_TIME) != 0)
 		fChangeTime = stat.st_ctim;
+	else if (statMask != 0)
+		GetCurrentTime(fChangeTime);
 	if ((statMask & B_STAT_CREATION_TIME) != 0)
 		fCreateTime = stat.st_crtim;
 

@@ -82,7 +82,7 @@ status_t ShmfsVolume::ReadFsInfo(struct fs_info &info)
 	info = {
 		.dev = Id(),
 		.root = fRootVnode->Id(),
-		.block_size = B_PAGE_SIZE,
+		.block_size = 512,
 		.io_size = B_PAGE_SIZE,
 		.total_blocks = 0,
 		.free_blocks = INT64_MAX / B_PAGE_SIZE,
