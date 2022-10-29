@@ -1,3 +1,12 @@
+/*
+ * _DoCacheIO, _GetPages, _PutPages are based on Haiku `ramfs` code under following license:
+ *
+ * Copyright 2007, Ingo Weinhold, ingo_weinhold@gmx.de.
+ * Copyright 2019, Haiku, Inc.
+ * All rights reserved. Distributed under the terms of the MIT license.
+ */
+
+
 #include "Shmfs.h"
 
 #include <KernelExport.h>
