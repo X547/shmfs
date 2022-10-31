@@ -40,13 +40,6 @@ status_t ShmfsVolume::RegisterVnode(ShmfsVnode *vnode)
 	return B_OK;
 }
 
-ShmfsVnode *ShmfsVolume::LookupVnode(ino_t id)
-{
-	RecursiveLocker lock(Lock());
-	TRACE("ShmfsVolume::LookupVnode: %" B_PRId64 "\n", id);
-	return fIds.Find(id);
-}
-
 
 status_t ShmfsVolume::Mount(ShmfsVolume* &volume, fs_volume *base, const char* device, uint32 flags, const char* args, ino_t &rootVnodeID)
 {
@@ -84,32 +77,30 @@ status_t ShmfsVolume::ReadFsInfo(struct fs_info &info)
 		.root = fRootVnode->Id(),
 		.block_size = 512,
 		.io_size = B_PAGE_SIZE,
-		.total_blocks = 0,
-		.free_blocks = INT64_MAX / B_PAGE_SIZE,
-		.total_nodes = 0,
+		.total_blocks = INT64_MAX / 512,
+		.free_blocks = INT64_MAX / 512,
+		.total_nodes = INT64_MAX,
 		.free_nodes = INT64_MAX,
 	};
+	strcpy(info.volume_name, "shmfs");
 	return B_OK;
 }
 
 status_t ShmfsVolume::GetVnode(ino_t id, ShmfsVnode* &vnode, int &type, uint32 &flags, bool reenter)
 {
 	TRACE("ShmfsVolume::GetVnode(%" B_PRId64 ")\n", id);
-	TRACE("  &vnode: %p\n", &vnode);
-	TRACE("  &type: %p\n", &type);
-	TRACE("  &flags: %p\n", &flags);
 
 	RecursiveLocker lock(Lock());
 
-	vnode = LookupVnode(id);
+	vnode = fIds.Find(id);
 	if (vnode == NULL)
 		return ENOENT;
 
-	vnode->AcquireReference();
 	struct stat stat;
 	CHECK_RET(vnode->ReadStat(stat));
 	type = stat.st_mode;
 	flags = 0;
 
+	vnode->AcquireReference();
 	return B_OK;
 }

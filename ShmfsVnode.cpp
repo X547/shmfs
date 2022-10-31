@@ -38,23 +38,20 @@ status_t ShmfsVnode::SetName(const char *name)
 	return B_OK;
 }
 
+
+//#pragma mark - VFS interface
+
 status_t ShmfsVnode::Lookup(const char* name, ino_t &id)
 {
-	RecursiveLocker lock(Volume()->Lock());
 	TRACE("ShmfsVnode::Lookup()\n");
-	ShmfsVnode *vnode = fNames.Find(name);
-	if (vnode != NULL) {
-		id = vnode->Id();
-		return B_OK;
-	}
-	return ENOENT;
+	return B_NOT_A_DIRECTORY;
 }
 
 status_t ShmfsVnode::GetVnodeName(char* buffer, size_t bufferSize)
 {
 	RecursiveLocker lock(Volume()->Lock());
 	TRACE("ShmfsVnode::GetVnodeName()\n");
-	strlcpy(buffer, &fName[0], bufferSize);
+	strlcpy(buffer, Name(), bufferSize);
 	return B_OK;
 }
 
@@ -63,6 +60,18 @@ status_t ShmfsVnode::PutVnode(bool reenter)
 	TRACE("ShmfsVnode::PutVnode()\n");
 	ReleaseReference();
 	return B_OK;
+}
+
+status_t ShmfsVnode::RemoveVnode(bool reenter)
+{
+	TRACE("ShmfsVnode::RemoveVnode()\n");
+	ReleaseReference();
+	return B_OK;
+}
+
+status_t ShmfsVnode::SetFlags(ShmfsFileCookie* cookie, int flags)
+{
+	return ENOSYS;
 }
 
 status_t ShmfsVnode::Fsync()
@@ -150,7 +159,7 @@ status_t ShmfsVnode::WriteStat(const struct stat &stat, uint32 statMask)
 	return B_OK;
 }
 
-status_t ShmfsVnode::Create(const char* name, int openMode, int perms, ino_t &newVnodeID)
+status_t ShmfsVnode::Create(const char* name, int openMode, int perms, ShmfsFileCookie* &cookie, ino_t &newVnodeID)
 {
 	TRACE("ShmfsVnode::Create()\n");
 	return B_NOT_A_DIRECTORY;
@@ -227,4 +236,108 @@ status_t ShmfsVnode::RewindDir(ShmfsDirIterator* cookie)
 {
 	TRACE("ShmfsVnode::RewindDir()\n");
 	return B_NOT_A_DIRECTORY;
+}
+
+
+//#pragma mark - Attributes
+
+status_t ShmfsVnode::OpenAttrDir(ShmfsAttrDirIterator* &cookie)
+{
+	return ENOSYS;
+}
+
+status_t ShmfsVnode::CloseAttrDir(ShmfsAttrDirIterator* cookie)
+{
+	return ENOSYS;
+}
+
+status_t ShmfsVnode::FreeAttrDirCookie(ShmfsAttrDirIterator* cookie)
+{
+	return ENOSYS;
+}
+
+status_t ShmfsVnode::ReadAttrDir(ShmfsAttrDirIterator* cookie, struct dirent* buffer, size_t bufferSize, uint32 &num)
+{
+	return ENOSYS;
+}
+
+status_t ShmfsVnode::RewindAttrDir(ShmfsAttrDirIterator* cookie)
+{
+	return ENOSYS;
+}
+
+status_t ShmfsVnode::CreateAttr(const char* name, uint32 type, int openMode, ShmfsAttribute* &cookie)
+{
+	RecursiveLocker lock(Volume()->Lock());
+	ShmfsAttribute *oldAttr = fAttrs.Find(name);
+	if (oldAttr != NULL) {
+		if ((O_EXCL & openMode) != 0)
+			return B_FILE_EXISTS;
+		if ((O_TRUNC & openMode) != 0)
+			CHECK_RET(oldAttr->WriteStat({.st_size = 0}, B_STAT_SIZE));
+		oldAttr->AcquireReference();
+		cookie = oldAttr;
+		return B_OK;
+	}
+	BReference<ShmfsAttribute> attr(new(std::nothrow) ShmfsAttribute(), true);
+	if (!attr.IsSet())
+		return B_NO_MEMORY;
+	CHECK_RET(attr->SetName(name));
+	attr->fType = type;
+	fAttrs.Insert(attr);
+	attr->AcquireReference();
+	cookie = attr.Detach();
+	return B_OK;
+}
+
+status_t ShmfsVnode::OpenAttr(const char* name, int openMode, ShmfsAttribute* &cookie)
+{
+	RecursiveLocker lock(Volume()->Lock());
+	ShmfsAttribute *attr = fAttrs.Find(name);
+	if (attr == NULL)
+		return B_ENTRY_NOT_FOUND;
+	attr->AcquireReference();
+	cookie = attr;
+	return B_OK;
+}
+
+status_t ShmfsVnode::CloseAttr(ShmfsAttribute* cookie)
+{
+	return B_OK;
+}
+
+status_t ShmfsVnode::FreeAttrCookie(ShmfsAttribute* cookie)
+{
+	cookie->ReleaseReference();
+	return B_OK;
+}
+
+status_t ShmfsVnode::ReadAttr(ShmfsAttribute* cookie, off_t pos, void* buffer, size_t &length)
+{
+	return cookie->Read(pos, buffer, length);
+}
+
+status_t ShmfsVnode::WriteAttr(ShmfsAttribute* cookie, off_t pos, const void* buffer, size_t &length)
+{
+	return cookie->Write(pos, buffer, length);
+}
+
+status_t ShmfsVnode::ReadAttrStat(ShmfsAttribute* cookie, struct stat &stat)
+{
+	return cookie->ReadStat(stat);
+}
+
+status_t ShmfsVnode::WriteAttrStat(ShmfsAttribute* cookie, const struct stat &stat, int statMask)
+{
+	return cookie->WriteStat(stat, statMask);
+}
+
+status_t ShmfsVnode::RenameAttr(const char* fromName, ShmfsVnode* toVnode, const char* toName)
+{
+	return ENOSYS;
+}
+
+status_t ShmfsVnode::RemoveAttr(const char* name)
+{
+	return ENOSYS;
 }

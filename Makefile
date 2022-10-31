@@ -38,6 +38,7 @@ SRCS = \
 	ShmfsFileVnode.cpp \
 	ShmfsDirectoryVnode.cpp \
 	ShmfsSymlinkVnode.cpp \
+	ShmfsAttribute.cpp \
 	ExternalAllocator.cpp \
 
 #	Specify the resource definition files to use. Full or relative paths can be

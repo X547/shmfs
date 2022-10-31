@@ -28,9 +28,62 @@ class vm_page;
 class ShmfsVolume;
 class ShmfsFileCookie;
 class ShmfsDirIterator;
+class ShmfsAttrDirIterator;
 
 
 void GetCurrentTime(struct timespec &outTime);
+
+
+class ShmfsAttribute: public BReferenceable {
+private:
+	ArrayDeleter<char> fName;
+public:
+	int32 fType = 0;
+private:
+	uint32 fDataSize = 0, fDataAllocSize = 0;
+	ObjectDeleter<uint8> fData;
+	AVLTreeNode fNameNode;
+
+	struct NameNodeDef {
+		typedef const char *Key;
+		typedef ShmfsAttribute Value;
+
+		inline AVLTreeNode* GetAVLTreeNode(Value* value) const
+		{
+			return &value->fNameNode;
+		}
+
+		inline Value* GetValue(AVLTreeNode* node) const
+		{
+			return (Value*)((char*)node - offsetof(Value, fNameNode));
+		}
+
+		inline int Compare(const Key& a, const Value* b) const
+		{
+			return strcmp(a, &b->fName[0]);
+		}
+
+		inline int Compare(const Value* a, const Value* b) const
+		{
+			return strcmp(&a->fName[0], &b->fName[0]);
+		}
+	};
+
+public:
+	typedef AVLTree<NameNodeDef> NameMap;
+
+private:
+	status_t EnsureSize(uint32 size);
+
+public:
+	const char* Name() {return !fName.IsSet() ? "" : &fName[0];}
+	status_t SetName(const char* name);
+
+	status_t Read(off_t pos, void* buffer, size_t &length);
+	status_t Write(off_t pos, const void* buffer, size_t &length);
+	status_t ReadStat(struct stat &stat);
+	status_t WriteStat(const struct stat &stat, int statMask);
+};
 
 
 class ShmfsVnode: public BReferenceable {
@@ -42,6 +95,8 @@ private:
 	ArrayDeleter<char> fName;
 	AVLTreeNode fIdNode;
 	AVLTreeNode fNameNode;
+
+	ShmfsAttribute::NameMap fAttrs;
 
 public:
 	ShmfsVnode *fParent{};
@@ -110,9 +165,6 @@ public:
 	typedef AVLTree<IdNodeDef> IdMap;
 	typedef AVLTree<NameNodeDef> NameMap;
 
-private:
-	NameMap fNames;
-
 public:
 	virtual ~ShmfsVnode();
 
@@ -124,6 +176,8 @@ public:
 	virtual status_t Lookup(const char* name, ino_t &id);
 	status_t GetVnodeName(char* buffer, size_t bufferSize);
 	status_t PutVnode(bool reenter);
+	status_t RemoveVnode(bool reenter);
+	virtual status_t SetFlags(ShmfsFileCookie* cookie, int flags);
 	status_t Fsync();
 	virtual status_t ReadSymlink(char* buffer, size_t &bufferSize);
 	virtual status_t CreateSymlink(const char* name, const char* path, int mode);
@@ -132,10 +186,10 @@ public:
 	status_t Access(int mode);
 	virtual status_t ReadStat(struct stat &stat);
 	virtual status_t WriteStat(const struct stat &stat, uint32 statMask);
-	virtual status_t Create(const char* name, int openMode, int perms, ino_t &newVnodeID);
-	status_t Open(int openMode, ShmfsFileCookie* &cookie);
+	virtual status_t Create(const char* name, int openMode, int perms, ShmfsFileCookie* &cookie, ino_t &newVnodeID);
+	virtual status_t Open(int openMode, ShmfsFileCookie* &cookie);
 	status_t Close(ShmfsFileCookie* cookie);
-	status_t FreeCookie(ShmfsFileCookie* cookie);
+	virtual status_t FreeCookie(ShmfsFileCookie* cookie);
 	virtual status_t Read(ShmfsFileCookie* cookie, off_t pos, void* buffer, size_t &length);
 	virtual status_t Write(ShmfsFileCookie* cookie, off_t pos, const void* buffer, size_t &length);
 	virtual status_t CreateDir(const char* name, int perms);
@@ -145,6 +199,22 @@ public:
 	virtual status_t FreeDirCookie(ShmfsDirIterator* cookie);
 	virtual status_t ReadDir(ShmfsDirIterator* cookie, struct dirent* buffer, size_t bufferSize, uint32 &num);
 	virtual status_t RewindDir(ShmfsDirIterator* cookie);
+
+	status_t OpenAttrDir(ShmfsAttrDirIterator* &cookie);
+	status_t CloseAttrDir(ShmfsAttrDirIterator* cookie);
+	status_t FreeAttrDirCookie(ShmfsAttrDirIterator* cookie);
+	status_t ReadAttrDir(ShmfsAttrDirIterator* cookie, struct dirent* buffer, size_t bufferSize, uint32 &num);
+	status_t RewindAttrDir(ShmfsAttrDirIterator* cookie);
+	status_t CreateAttr(const char* name, uint32 type, int openMode, ShmfsAttribute* &cookie);
+	status_t OpenAttr(const char* name, int openMode, ShmfsAttribute* &cookie);
+	status_t CloseAttr(ShmfsAttribute* cookie);
+	status_t FreeAttrCookie(ShmfsAttribute* cookie);
+	status_t ReadAttr(ShmfsAttribute* cookie, off_t pos, void* buffer, size_t &length);
+	status_t WriteAttr(ShmfsAttribute* cookie, off_t pos, const void* buffer, size_t &length);
+	status_t ReadAttrStat(ShmfsAttribute* cookie, struct stat &stat);
+	status_t WriteAttrStat(ShmfsAttribute* cookie, const struct stat &stat, int statMask);
+	status_t RenameAttr(const char* fromName, ShmfsVnode* toVnode, const char* toName);
+	status_t RemoveAttr(const char* name);
 };
 
 class ShmfsFileVnode: public ShmfsVnode {
@@ -152,6 +222,10 @@ private:
 	VMCache* fCache{};
 	uint64 fDataSize = 0;
 
+public:
+	bool fIsAppend = false;
+
+private:
 	void _GetPages(off_t offset, off_t length, bool isWrite, vm_page** pages);
 	void _PutPages(off_t offset, off_t length, vm_page** pages, bool success);
 	status_t _DoCacheIO(const off_t offset, uint8* buffer, ssize_t length, size_t &bytesProcessed, bool isWrite);
@@ -161,8 +235,11 @@ public:
 
 	status_t Init();
 
+	status_t SetFlags(ShmfsFileCookie* cookie, int flags) final;
 	status_t ReadStat(struct stat &stat) final;
 	status_t WriteStat(const struct stat &stat, uint32 statMask) final;
+	status_t Open(int openMode, ShmfsFileCookie* &cookie) final;
+	status_t FreeCookie(ShmfsFileCookie* cookie) final;
 	status_t Read(ShmfsFileCookie* cookie, off_t pos, void* buffer, size_t &length) final;
 	status_t Write(ShmfsFileCookie* cookie, off_t pos, const void* buffer, size_t &length) final;
 };
@@ -194,12 +271,12 @@ private:
 
 public:
 	~ShmfsDirectoryVnode();
-	
+
 	status_t CreateSymlink(const char* name, const char* path, int mode) final;
 	status_t Unlink(const char* name) final;
 	status_t Rename(const char* fromName, ShmfsVnode* toDir, const char* toName) final;
 	status_t ReadStat(struct stat &stat) final;
-	status_t Create(const char* name, int openMode, int perms, ino_t &newVnodeID) final;
+	status_t Create(const char* name, int openMode, int perms, ShmfsFileCookie* &cookie, ino_t &newVnodeID) final;
 	status_t CreateDir(const char* name, int perms) final;
 	status_t RemoveDir(const char* name) final;
 	status_t Lookup(const char* name, ino_t &id) final;
@@ -249,7 +326,6 @@ public:
 	inline dev_t Id() {return fBase->id;}
 
 	status_t RegisterVnode(ShmfsVnode *vnode);
-	ShmfsVnode *LookupVnode(ino_t id);
 
 	static status_t Mount(ShmfsVolume* &volume, fs_volume *base, const char* device, uint32 flags, const char* args, ino_t &_rootVnodeID);
 	status_t Unmount();

@@ -22,6 +22,12 @@
 #include <algorithm>
 
 
+class ShmfsFileCookie {
+public:
+	bool isAppend = false;
+};
+
+
 status_t ShmfsFileVnode::Init()
 {
 	CHECK_RET(VMCacheFactory::CreateAnonymousCache(fCache, false, 0, 0, false, VM_PRIORITY_SYSTEM));
@@ -189,6 +195,14 @@ void ShmfsFileVnode::_PutPages(off_t offset, off_t length, vm_page** pages, bool
 
 //#pragma mark - VFS interface
 
+status_t ShmfsFileVnode::SetFlags(ShmfsFileCookie* cookie, int flags)
+{
+	RecursiveLocker lock(Volume()->Lock());
+	TRACE("#%" B_PRId64 ".FileVnode::SetFlags(%p, %x)\n", Id(), cookie, flags);
+	cookie->isAppend = (flags & O_APPEND) != 0;
+	return B_OK;
+}
+
 status_t ShmfsFileVnode::ReadStat(struct stat &stat)
 {
 	RecursiveLocker lock(Volume()->Lock());
@@ -211,11 +225,29 @@ status_t ShmfsFileVnode::WriteStat(const struct stat &stat, uint32 statMask)
 	return ShmfsVnode::WriteStat(stat, statMask);
 }
 
+status_t ShmfsFileVnode::Open(int openMode, ShmfsFileCookie* &cookie)
+{
+	TRACE("#%" B_PRId64 ".FileVnode::Open(%x, &cookie: %p)\n", Id(), openMode, &cookie);
+	cookie = new(std::nothrow) ShmfsFileCookie();
+	if (cookie == NULL)
+		return B_NO_MEMORY;
+	cookie->isAppend = (openMode & O_APPEND) != 0;
+	return B_OK;
+}
+
+status_t ShmfsFileVnode::FreeCookie(ShmfsFileCookie* cookie)
+{
+	TRACE("#%" B_PRId64 ".FileVnode::FreeCookie(%p)\n", Id(), cookie);
+	delete cookie;
+	return B_OK;
+}
+
 status_t ShmfsFileVnode::Read(ShmfsFileCookie* cookie, off_t pos, void* buffer, size_t &outLength)
 {
 	ino_t dirId;
 	{
 	RecursiveLocker lock(Volume()->Lock());
+	TRACE("#%" B_PRId64 ".FileVnode::Read(%p, %" B_PRId64 ")\n", Id(), cookie, pos);
 
 	if (pos < 0)
 		return B_BAD_VALUE;
@@ -239,6 +271,10 @@ status_t ShmfsFileVnode::Write(ShmfsFileCookie* cookie, off_t pos, const void* b
 	ino_t dirId;
 	{
 	RecursiveLocker lock(Volume()->Lock());
+	TRACE("#%" B_PRId64 ".FileVnode::Write(%p, %" B_PRId64 ")\n", Id(), cookie, pos);
+
+	if (cookie->isAppend)
+		pos = fDataSize;
 
 	if (pos < 0)
 		return B_BAD_VALUE;

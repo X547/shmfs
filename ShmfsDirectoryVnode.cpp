@@ -138,12 +138,15 @@ status_t ShmfsDirectoryVnode::Unlink(const char* name)
 	if (vnode == NULL)
 		return B_ENTRY_NOT_FOUND;
 
-	ShmfsDirectoryVnode *dirVnode = dynamic_cast<ShmfsDirectoryVnode*>(vnode);
-	if (dirVnode != NULL)
+	if (dynamic_cast<ShmfsDirectoryVnode*>(vnode) != NULL)
 		return B_IS_A_DIRECTORY;
 
 	id = vnode->Id();
 	RemoveNode(vnode);
+	if (acquire_vnode(Volume()->Base(), vnode->Id()) >= B_OK) {
+		remove_vnode(Volume()->Base(), vnode->Id());
+		put_vnode(Volume()->Base(), vnode->Id());
+	}
 	vnode->ReleaseReference();
 	}
 	notify_entry_removed(Volume()->Id(), Id(), name, id);
@@ -190,7 +193,7 @@ status_t ShmfsDirectoryVnode::ReadStat(struct stat &stat)
 	return B_OK;
 }
 
-status_t ShmfsDirectoryVnode::Create(const char* name, int openMode, int perms, ino_t &newVnodeID)
+status_t ShmfsDirectoryVnode::Create(const char* name, int openMode, int perms, ShmfsFileCookie* &cookie, ino_t &newVnodeID)
 {
 	{
 	RecursiveLocker lock(Volume()->Lock());
@@ -198,6 +201,8 @@ status_t ShmfsDirectoryVnode::Create(const char* name, int openMode, int perms, 
 
 	ShmfsVnode *oldVnode = fNodes.Find(name);
 	if (oldVnode != NULL) {
+		if ((O_EXCL & openMode) != 0)
+			return B_FILE_EXISTS;
 		newVnodeID = oldVnode->Id();
 		if ((O_TRUNC & openMode) != 0)
 			CHECK_RET(oldVnode->WriteStat({.st_size = 0}, B_STAT_SIZE));
@@ -212,6 +217,7 @@ status_t ShmfsDirectoryVnode::Create(const char* name, int openMode, int perms, 
 	CHECK_RET(vnode->SetName(name));
 	vnode->fParent = this;
 	vnode->fMode = perms & S_IUMSK;
+	CHECK_RET(vnode->Open(openMode, cookie));
 	CHECK_RET(Volume()->RegisterVnode(vnode));
 	newVnodeID = vnode->Id();
 	CHECK_RET(get_vnode(Volume()->Base(), vnode->Id(), NULL));
@@ -280,6 +286,7 @@ status_t ShmfsDirectoryVnode::RemoveDir(const char* name)
 	id = dirVnode->Id();
 	RemoveNode(dirVnode);
 	dirVnode->ReleaseReference();
+	remove_vnode(Volume()->Base(), vnode->Id());
 	}
 	notify_entry_removed(Volume()->Id(), Id(), name, id);
 
