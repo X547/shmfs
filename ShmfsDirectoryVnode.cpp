@@ -206,8 +206,13 @@ status_t ShmfsDirectoryVnode::Create(const char* name, int openMode, int perms, 
 	RecursiveLocker lock(Volume()->Lock());
 	TRACE("#%" B_PRId64 ".DirectoryVnode::Create()\n", Id());
 
+	if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0)
+		return B_IS_A_DIRECTORY;
+
 	ShmfsVnode *oldVnode = fNodes.Find(name);
 	if (oldVnode != NULL) {
+		if (dynamic_cast<ShmfsDirectoryVnode*>(oldVnode) != NULL)
+			return B_IS_A_DIRECTORY;
 		if ((O_EXCL & openMode) != 0)
 			return B_FILE_EXISTS;
 		newVnodeID = oldVnode->Id();
@@ -250,7 +255,7 @@ status_t ShmfsDirectoryVnode::CreateDir(const char* name, int perms)
 	RecursiveLocker lock(Volume()->Lock());
 	TRACE("#%" B_PRId64 ".DirectoryVnode::CreateDir()\n", Id());
 
-	if (fNodes.Find(name))
+	if (fNodes.Find(name) || strcmp(name, ".") == 0 || strcmp(name, "..") == 0)
 		return B_FILE_EXISTS;
 
 	BReference<ShmfsDirectoryVnode> vnode(new (std::nothrow) ShmfsDirectoryVnode(), true);
