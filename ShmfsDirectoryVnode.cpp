@@ -169,8 +169,14 @@ status_t ShmfsDirectoryVnode::Rename(const char* fromName, ShmfsVnode* toDir, co
 	if (vnode == NULL)
 		return B_ENTRY_NOT_FOUND;
 
-	if (dstDirVnode->fNodes.Find(toName))
-		return B_FILE_EXISTS;
+	ShmfsVnode* oldDstVnode = dstDirVnode->fNodes.Find(toName);
+	if (oldDstVnode != NULL) {
+		if (dynamic_cast<ShmfsDirectoryVnode*>(oldDstVnode) != NULL) {
+			CHECK_RET(dstDirVnode->RemoveDir(toName));
+		} else {
+			CHECK_RET(dstDirVnode->Unlink(toName));
+		}
+	}
 
 	RemoveNode(vnode);
 	vnode->SetName(toName);
