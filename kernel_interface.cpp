@@ -94,7 +94,7 @@ static fs_vnode_ops sVnodeOps = {
 	.rewind_dir = [](fs_volume* volume, fs_vnode* vnode, void* cookie) {
 		return static_cast<ShmfsVnode*>(vnode->private_node)->RewindDir((ShmfsDirIterator*)cookie);
 	},
-
+#if 0
 	.open_attr_dir = [](fs_volume* volume, fs_vnode* vnode, void** cookie) {
 		return static_cast<ShmfsVnode*>(vnode->private_node)->OpenAttrDir(*(ShmfsAttrDirIterator**)cookie);
 	},
@@ -140,6 +140,7 @@ static fs_vnode_ops sVnodeOps = {
 	.remove_attr = [](fs_volume* volume, fs_vnode* vnode, const char* name) {
 		return static_cast<ShmfsVnode*>(vnode->private_node)->RemoveAttr(name);
 	},
+#endif
 };
 
 static fs_volume_ops sVolumeOps = {
