@@ -173,6 +173,7 @@ status_t ShmfsDirectoryVnode::Rename(const char* fromName, ShmfsVnode* toDir, co
 		return B_FILE_EXISTS;
 
 	RemoveNode(vnode);
+	vnode->SetName(toName);
 	dstDirVnode->fNodes.Insert(vnode);
 
 	id = vnode->Id();
@@ -328,6 +329,7 @@ status_t ShmfsDirectoryVnode::OpenDir(ShmfsDirIterator* &cookie)
 
 status_t ShmfsDirectoryVnode::CloseDir(ShmfsDirIterator* cookie)
 {
+	RecursiveLocker lock(Volume()->Lock());
 	TRACE("#%" B_PRId64 ".DirectoryVnode::CloseDir()\n", Id());
 	fIterators.Remove(cookie);
 	return B_OK;
