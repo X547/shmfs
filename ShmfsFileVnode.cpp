@@ -261,9 +261,10 @@ status_t ShmfsFileVnode::Read(ShmfsFileCookie* cookie, off_t pos, void* buffer, 
 
 	dirId = fParent == NULL ? 0 : fParent->Id();
 
-	return _DoCacheIO(pos, (uint8*)buffer, length, outLength, false);
+	CHECK_RET(_DoCacheIO(pos, (uint8*)buffer, length, outLength, false));
 	}
 	notify_stat_changed(Volume()->Id(), dirId, Id(), B_STAT_ACCESS_TIME);
+	return B_OK;
 }
 
 status_t ShmfsFileVnode::Write(ShmfsFileCookie* cookie, off_t pos, const void* buffer, size_t &outLength)
@@ -298,7 +299,8 @@ status_t ShmfsFileVnode::Write(ShmfsFileCookie* cookie, off_t pos, const void* b
 
 	dirId = fParent == NULL ? 0 : fParent->Id();
 
-	return _DoCacheIO(pos, (uint8*)buffer, length, outLength, true);
+	CHECK_RET(_DoCacheIO(pos, (uint8*)buffer, length, outLength, true));
 	}
 	notify_stat_changed(Volume()->Id(), dirId, Id(), B_STAT_ACCESS_TIME | B_STAT_MODIFICATION_TIME);
+	return B_OK;
 }
