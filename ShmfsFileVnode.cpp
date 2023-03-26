@@ -41,8 +41,7 @@ status_t ShmfsFileVnode::Init()
 ShmfsFileVnode::~ShmfsFileVnode()
 {
 	if (fCache != NULL) {
-		fCache->Lock();
-		fCache->ReleaseRefAndUnlock();
+		fCache->ReleaseRef();
 		fCache = NULL;
 	}
 }
@@ -225,13 +224,16 @@ status_t ShmfsFileVnode::WriteStat(const struct stat &stat, uint32 statMask)
 	return ShmfsVnode::WriteStat(stat, statMask);
 }
 
-status_t ShmfsFileVnode::Open(int openMode, ShmfsFileCookie* &cookie)
+status_t ShmfsFileVnode::Open(int openMode, ShmfsFileCookie* &outCookie)
 {
 	TRACE("#%" B_PRId64 ".FileVnode::Open(%x, &cookie: %p)\n", Id(), openMode, &cookie);
-	cookie = new(std::nothrow) ShmfsFileCookie();
-	if (cookie == NULL)
+	ObjectDeleter<ShmfsFileCookie> cookie(new(std::nothrow) ShmfsFileCookie());
+	if (!cookie.IsSet())
 		return B_NO_MEMORY;
 	cookie->isAppend = (openMode & O_APPEND) != 0;
+	if (fDataSize > 0 && (O_TRUNC & openMode) != 0)
+		CHECK_RET(WriteStat({.st_size = 0}, B_STAT_SIZE));
+	outCookie = cookie.Detach();
 	return B_OK;
 }
 

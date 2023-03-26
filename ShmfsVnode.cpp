@@ -1,6 +1,7 @@
 #include "Shmfs.h"
 
 #include <NodeMonitor.h>
+#include <dirent.h>
 
 #include <util/AutoLock.h>
 
@@ -21,6 +22,13 @@ ShmfsVnode::~ShmfsVnode()
 {
 	RecursiveLocker lock(Volume()->Lock());
 	TRACE("-ShmfsVnode(%" B_PRId64 ", \"%s\")\n", fId, Name());
+	for (;;) {
+		ShmfsAttribute *attr = fAttrs.LeftMost();
+		if (attr == NULL)
+			break;
+		fAttrs.Remove(attr);
+		attr->ReleaseReference();
+	}
 	if (fId != 0) {
 		fVolume->fIds.Remove(this);
 		fVolume->fIdPool.Free(fId);
@@ -36,6 +44,35 @@ status_t ShmfsVnode::SetName(const char *name)
 	memcpy(&newName[0], name, len);
 	fName.SetTo(newName.Detach());
 	return B_OK;
+}
+
+
+void ShmfsVnode::AttrIteratorRewind(ShmfsAttrDirIterator* cookie)
+{
+	cookie->attr = fAttrs.LeftMost();
+}
+
+bool ShmfsVnode::AttrIteratorGet(ShmfsAttrDirIterator* cookie, const char *&name, ShmfsAttribute *&attr)
+{
+		if (cookie->attr == NULL)
+			return false;
+		attr = cookie->attr;
+		name = attr->Name();
+		return true;
+}
+
+void ShmfsVnode::AttrIteratorNext(ShmfsAttrDirIterator* cookie)
+{
+		cookie->attr = fAttrs.Next(cookie->attr);
+}
+
+void ShmfsVnode::RemoveAttr(ShmfsAttribute *attr)
+{
+	for (ShmfsAttrDirIterator *it = fAttrIterators.First(); it != NULL; it = fAttrIterators.GetNext(it)) {
+		if (it->attr == attr)
+			AttrIteratorNext(it);
+	}
+	fAttrs.Remove(attr);
 }
 
 
@@ -67,6 +104,11 @@ status_t ShmfsVnode::RemoveVnode(bool reenter)
 	TRACE("ShmfsVnode::RemoveVnode()\n");
 	ReleaseReference();
 	return B_OK;
+}
+
+status_t ShmfsVnode::Ioctl(ShmfsFileCookie* cookie, uint32 op, void* buffer, size_t length)
+{
+	return B_DEV_INVALID_IOCTL;
 }
 
 status_t ShmfsVnode::SetFlags(ShmfsFileCookie* cookie, int flags)
@@ -243,27 +285,70 @@ status_t ShmfsVnode::RewindDir(ShmfsDirIterator* cookie)
 
 status_t ShmfsVnode::OpenAttrDir(ShmfsAttrDirIterator* &cookie)
 {
-	return ENOSYS;
+	RecursiveLocker lock(Volume()->Lock());
+	cookie = new (std::nothrow) ShmfsAttrDirIterator();
+	if (cookie == NULL)
+		return B_NO_MEMORY;
+	fAttrIterators.Insert(cookie);
+	RewindAttrDir(cookie);
+	return B_OK;
 }
 
 status_t ShmfsVnode::CloseAttrDir(ShmfsAttrDirIterator* cookie)
 {
-	return ENOSYS;
+	RecursiveLocker lock(Volume()->Lock());
+	fAttrIterators.Remove(cookie);
+	return B_OK;
 }
 
 status_t ShmfsVnode::FreeAttrDirCookie(ShmfsAttrDirIterator* cookie)
 {
-	return ENOSYS;
+	delete cookie;
+	return B_OK;
 }
 
 status_t ShmfsVnode::ReadAttrDir(ShmfsAttrDirIterator* cookie, struct dirent* buffer, size_t bufferSize, uint32 &num)
 {
-	return ENOSYS;
+	RecursiveLocker lock(Volume()->Lock());
+
+	const char *name;
+	ShmfsAttribute *attr;
+	uint32 maxNum = num;
+	num = 0;
+
+	for (;;) {
+		if (!(num < maxNum))
+			break;
+
+		if (!AttrIteratorGet(cookie, name, attr))
+			break;
+
+		size_t direntSize = offsetof(struct dirent, d_name) + strlen(name) + 1;
+		if (bufferSize < direntSize) {
+			if (num == 0)
+				return B_BUFFER_OVERFLOW;
+			break;
+		}
+		*buffer = {
+			.d_dev = Volume()->Id(),
+			.d_ino = Id(),
+			.d_reclen = (uint16)direntSize
+		};
+		strcpy(buffer->d_name, name);
+		bufferSize -= direntSize;
+		*(uint8**)&buffer += direntSize;
+		num++;
+		AttrIteratorNext(cookie);
+	}
+
+	return B_OK;
 }
 
 status_t ShmfsVnode::RewindAttrDir(ShmfsAttrDirIterator* cookie)
 {
-	return ENOSYS;
+	RecursiveLocker lock(Volume()->Lock());
+	AttrIteratorRewind(cookie);
+	return B_OK;
 }
 
 status_t ShmfsVnode::CreateAttr(const char* name, uint32 type, int openMode, ShmfsAttribute* &cookie)
@@ -334,10 +419,34 @@ status_t ShmfsVnode::WriteAttrStat(ShmfsAttribute* cookie, const struct stat &st
 
 status_t ShmfsVnode::RenameAttr(const char* fromName, ShmfsVnode* toVnode, const char* toName)
 {
-	return ENOSYS;
+	RecursiveLocker lock(Volume()->Lock());
+
+	ShmfsAttribute *attr = fAttrs.Find(fromName);
+	if (attr == NULL)
+		return B_ENTRY_NOT_FOUND;
+
+	ShmfsAttribute* oldDstAttr = toVnode->fAttrs.Find(toName);
+	if (oldDstAttr != NULL)
+			CHECK_RET(toVnode->RemoveAttr(toName));
+
+	RemoveAttr(attr);
+
+	attr->SetName(toName);
+	toVnode->fAttrs.Insert(attr);
+
+	return B_OK;
 }
 
 status_t ShmfsVnode::RemoveAttr(const char* name)
 {
-	return ENOSYS;
+	RecursiveLocker lock(Volume()->Lock());
+
+	ShmfsAttribute *attr = fAttrs.Find(name);
+	if (attr == NULL)
+		return B_ENTRY_NOT_FOUND;
+
+	RemoveAttr(attr);
+	attr->ReleaseReference();
+
+	return B_OK;
 }

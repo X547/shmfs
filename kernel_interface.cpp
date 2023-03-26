@@ -28,6 +28,9 @@ static fs_vnode_ops sVnodeOps = {
 	.remove_vnode = [](fs_volume* volume, fs_vnode* vnode, bool reenter) {
 		return static_cast<ShmfsVnode*>(vnode->private_node)->RemoveVnode(reenter);
 	},
+	.ioctl = [](fs_volume* volume, fs_vnode* vnode, void* cookie, uint32 op, void* buffer, size_t length) {
+		return static_cast<ShmfsVnode*>(vnode->private_node)->Ioctl((ShmfsFileCookie*)cookie, op, buffer, length);
+	},
 	.set_flags = [](fs_volume* volume, fs_vnode* vnode, void* cookie, int flags) {
 		return static_cast<ShmfsVnode*>(vnode->private_node)->SetFlags((ShmfsFileCookie*)cookie, flags);
 	},
@@ -94,7 +97,7 @@ static fs_vnode_ops sVnodeOps = {
 	.rewind_dir = [](fs_volume* volume, fs_vnode* vnode, void* cookie) {
 		return static_cast<ShmfsVnode*>(vnode->private_node)->RewindDir((ShmfsDirIterator*)cookie);
 	},
-#if 0
+
 	.open_attr_dir = [](fs_volume* volume, fs_vnode* vnode, void** cookie) {
 		return static_cast<ShmfsVnode*>(vnode->private_node)->OpenAttrDir(*(ShmfsAttrDirIterator**)cookie);
 	},
@@ -140,7 +143,6 @@ static fs_vnode_ops sVnodeOps = {
 	.remove_attr = [](fs_volume* volume, fs_vnode* vnode, const char* name) {
 		return static_cast<ShmfsVnode*>(vnode->private_node)->RemoveAttr(name);
 	},
-#endif
 };
 
 static fs_volume_ops sVolumeOps = {

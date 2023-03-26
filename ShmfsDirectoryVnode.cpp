@@ -215,10 +215,8 @@ status_t ShmfsDirectoryVnode::Create(const char* name, int openMode, int perms, 
 			return B_IS_A_DIRECTORY;
 		if ((O_EXCL & openMode) != 0)
 			return B_FILE_EXISTS;
+		CHECK_RET(oldVnode->Open(openMode, cookie));
 		newVnodeID = oldVnode->Id();
-		if ((O_TRUNC & openMode) != 0)
-			CHECK_RET(oldVnode->WriteStat({.st_size = 0}, B_STAT_SIZE));
-
 		return B_OK;
 	}
 

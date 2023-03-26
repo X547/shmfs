@@ -26,6 +26,7 @@ class VMCache;
 class vm_page;
 
 class ShmfsVolume;
+class ShmfsVnode;
 class ShmfsFileCookie;
 class ShmfsDirIterator;
 class ShmfsAttrDirIterator;
@@ -41,7 +42,7 @@ public:
 	int32 fType = 0;
 private:
 	uint32 fDataSize = 0, fDataAllocSize = 0;
-	ObjectDeleter<uint8> fData;
+	ArrayDeleter<uint8> fData;
 	AVLTreeNode fNameNode;
 
 	struct NameNodeDef {
@@ -86,6 +87,17 @@ public:
 };
 
 
+struct ShmfsAttrDirIterator {
+	DoublyLinkedListLink<ShmfsAttrDirIterator> link;
+	ShmfsAttribute* attr;
+
+	typedef DoublyLinkedList<
+		ShmfsAttrDirIterator,
+		DoublyLinkedListMemberGetLink<ShmfsAttrDirIterator, &ShmfsAttrDirIterator::link>
+	> List;
+};
+
+
 class ShmfsVnode: public BReferenceable {
 private:
 	friend class ShmfsVolume;
@@ -97,6 +109,7 @@ private:
 	AVLTreeNode fNameNode;
 
 	ShmfsAttribute::NameMap fAttrs;
+	ShmfsAttrDirIterator::List fAttrIterators;
 
 public:
 	ShmfsVnode *fParent{};
@@ -165,6 +178,12 @@ public:
 	typedef AVLTree<IdNodeDef> IdMap;
 	typedef AVLTree<NameNodeDef> NameMap;
 
+private:
+	void AttrIteratorRewind(ShmfsAttrDirIterator* cookie);
+	bool AttrIteratorGet(ShmfsAttrDirIterator* cookie, const char *&name, ShmfsAttribute *&attr);
+	void AttrIteratorNext(ShmfsAttrDirIterator* cookie);
+	void RemoveAttr(ShmfsAttribute *attr);
+
 public:
 	virtual ~ShmfsVnode();
 
@@ -177,6 +196,7 @@ public:
 	status_t GetVnodeName(char* buffer, size_t bufferSize);
 	status_t PutVnode(bool reenter);
 	status_t RemoveVnode(bool reenter);
+	status_t Ioctl(ShmfsFileCookie* cookie, uint32 op, void* buffer, size_t length);
 	virtual status_t SetFlags(ShmfsFileCookie* cookie, int flags);
 	status_t Fsync();
 	virtual status_t ReadSymlink(char* buffer, size_t &bufferSize);
@@ -221,9 +241,6 @@ class ShmfsFileVnode: public ShmfsVnode {
 private:
 	VMCache* fCache{};
 	uint64 fDataSize = 0;
-
-public:
-	bool fIsAppend = false;
 
 private:
 	void _GetPages(off_t offset, off_t length, bool isWrite, vm_page** pages);
