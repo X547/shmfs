@@ -106,6 +106,21 @@ status_t ShmfsVnode::RemoveVnode(bool reenter)
 	return B_OK;
 }
 
+bool ShmfsVnode::CanPage(ShmfsFileCookie* cookie)
+{
+	return false;
+}
+
+status_t ShmfsVnode::ReadPages(ShmfsFileCookie* cookie, off_t pos, const iovec* vecs, size_t count, size_t& numBytes)
+{
+	return ENOSYS;
+}
+
+status_t ShmfsVnode::WritePages(ShmfsFileCookie* cookie, off_t pos, const iovec* vecs, size_t count, size_t& numBytes)
+{
+	return ENOSYS;
+}
+
 status_t ShmfsVnode::Ioctl(ShmfsFileCookie* cookie, uint32 op, void* buffer, size_t length)
 {
 	return B_DEV_INVALID_IOCTL;

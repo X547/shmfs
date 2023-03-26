@@ -196,6 +196,9 @@ public:
 	status_t GetVnodeName(char* buffer, size_t bufferSize);
 	status_t PutVnode(bool reenter);
 	status_t RemoveVnode(bool reenter);
+	virtual bool CanPage(ShmfsFileCookie* cookie);
+	virtual status_t ReadPages(ShmfsFileCookie* cookie, off_t pos, const iovec* vecs, size_t count, size_t& numBytes);
+	virtual status_t WritePages(ShmfsFileCookie* cookie, off_t pos, const iovec* vecs, size_t count, size_t& numBytes);
 	status_t Ioctl(ShmfsFileCookie* cookie, uint32 op, void* buffer, size_t length);
 	virtual status_t SetFlags(ShmfsFileCookie* cookie, int flags);
 	status_t Fsync();
@@ -239,19 +242,20 @@ public:
 
 class ShmfsFileVnode: public ShmfsVnode {
 private:
-	VMCache* fCache{};
-	uint64 fDataSize = 0;
+	uint32 fDataSize = 0, fDataAllocSize = 0;
+	ArrayDeleter<uint8> fData;
 
 private:
-	void _GetPages(off_t offset, off_t length, bool isWrite, vm_page** pages);
-	void _PutPages(off_t offset, off_t length, vm_page** pages, bool success);
-	status_t _DoCacheIO(const off_t offset, uint8* buffer, ssize_t length, size_t &bytesProcessed, bool isWrite);
+	status_t EnsureSize(uint32 size);
 
 public:
 	~ShmfsFileVnode();
 
 	status_t Init();
 
+	bool CanPage(ShmfsFileCookie* cookie) final;
+	status_t ReadPages(ShmfsFileCookie* cookie, off_t pos, const iovec* vecs, size_t count, size_t& numBytes) final;
+	status_t WritePages(ShmfsFileCookie* cookie, off_t pos, const iovec* vecs, size_t count, size_t& numBytes) final;
 	status_t SetFlags(ShmfsFileCookie* cookie, int flags) final;
 	status_t ReadStat(struct stat &stat) final;
 	status_t WriteStat(const struct stat &stat, uint32 statMask) final;

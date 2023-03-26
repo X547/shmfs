@@ -28,6 +28,15 @@ static fs_vnode_ops sVnodeOps = {
 	.remove_vnode = [](fs_volume* volume, fs_vnode* vnode, bool reenter) {
 		return static_cast<ShmfsVnode*>(vnode->private_node)->RemoveVnode(reenter);
 	},
+	.can_page = [](fs_volume* volume, fs_vnode* vnode, void* cookie) {
+		return static_cast<ShmfsVnode*>(vnode->private_node)->CanPage((ShmfsFileCookie*)cookie);
+	},
+	.read_pages = [](fs_volume* volume, fs_vnode* vnode, void* cookie, off_t pos, const iovec* vecs, size_t count, size_t* _numBytes) {
+		return static_cast<ShmfsVnode*>(vnode->private_node)->ReadPages((ShmfsFileCookie*)cookie, pos, vecs, count, *_numBytes);
+	},
+	.write_pages = [](fs_volume* volume, fs_vnode* vnode, void* cookie, off_t pos, const iovec* vecs, size_t count, size_t* _numBytes) {
+		return static_cast<ShmfsVnode*>(vnode->private_node)->WritePages((ShmfsFileCookie*)cookie, pos, vecs, count, *_numBytes);
+	},
 	.ioctl = [](fs_volume* volume, fs_vnode* vnode, void* cookie, uint32 op, void* buffer, size_t length) {
 		return static_cast<ShmfsVnode*>(vnode->private_node)->Ioctl((ShmfsFileCookie*)cookie, op, buffer, length);
 	},
